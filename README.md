@@ -1,6 +1,10 @@
 # 🚀 SPX Options Trading Bot
 
+[![CI/CD Pipeline](https://github.com/olaitanojo/Spx-options-trading-bot/actions/workflows/ci-cd-pipeline.yml/badge.svg)](https://github.com/olaitanojo/Spx-options-trading-bot/actions/workflows/ci-cd-pipeline.yml)
+
 A sophisticated automated trading system for SPX options with comprehensive backtesting, risk management, and real-time execution capabilities.
+
+🔧 **Enterprise-Grade CI/CD Pipeline Active** - This repository now includes automated testing, security scanning, code quality checks, and deployment capabilities!
 
 ## 🎯 Features
 
