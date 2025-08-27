@@ -1,0 +1,754 @@
+# ArgoCD Application Configuration for SPX Options Trading Bot
+# Advanced Deployment Strategies: Blue-Green, Canary, Rolling Updates with Argo Rollouts
+# Implements GitOps with progressive delivery and automated rollbacks
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: spx-options-trading-bot
+  namespace: argocd
+  labels:
+    app: spx-options-trading-bot
+    env: production
+    tier: trading
+    component: backend
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: spx-deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: spx-deployments
+    notifications.argoproj.io/subscribe.on-health-degraded.pagerduty: sre-team
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: spx-options-trading
+  
+  # Source Configuration
+  source:
+    repoURL: https://github.com/olaitanojo/Spx-options-trading-bot.git
+    targetRevision: HEAD
+    path: k8s/overlays/production
+    
+    # Kustomize Configuration
+    kustomize:
+      namePrefix: spx-
+      nameSuffix: -prod
+      commonLabels:
+        app: spx-options-trading-bot
+        env: production
+        managed-by: argocd
+      commonAnnotations:
+        deployment.kubernetes.io/revision: "1"
+        argocd.argoproj.io/tracking-id: spx-options-trading-bot:argoproj.io/Application:argocd/spx-options-trading-bot
+      
+      # Image tag substitution from CI/CD
+      images:
+        - name: spxoptionsregistry.azurecr.io/spx-options-trading-bot
+          newTag: latest
+      
+      # Patches for environment-specific configurations
+      patches:
+        - target:
+            group: apps
+            version: v1
+            kind: Deployment
+            name: spx-options-trading-bot
+          patch: |-
+            - op: replace
+              path: /spec/replicas
+              value: 5
+            - op: replace
+              path: /spec/template/spec/containers/0/resources/limits/memory
+              value: "2Gi"
+            - op: replace
+              path: /spec/template/spec/containers/0/resources/limits/cpu
+              value: "1000m"
+        
+        - target:
+            group: argoproj.io
+            version: v1alpha1
+            kind: Rollout
+            name: spx-options-trading-bot
+          patch: |-
+            - op: replace
+              path: /spec/strategy/canary/steps/0/setWeight
+              value: 10
+            - op: replace
+              path: /spec/strategy/canary/steps/1/pause/duration
+              value: 10m
+      
+      # Replica overrides for production
+      replicas:
+        - name: spx-options-trading-bot
+          count: 5
+        - name: spx-options-worker
+          count: 3
+        - name: spx-options-scheduler
+          count: 2
+
+  # Destination Configuration
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: spx-options-prod
+    
+  # Sync Policy Configuration
+  syncPolicy:
+    # Automated sync with self-healing
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    # Sync options
+    syncOptions:
+      - Validate=false
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - RespectIgnoreDifferences=true
+    
+    # Retry configuration
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Revision History
+  revisionHistoryLimit: 10
+  
+  # Ignore differences for dynamic fields
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+      name: spx-options-trading-bot
+    - group: ""
+      kind: Service
+      jsonPointers:
+        - /spec/clusterIP
+    - group: argoproj.io
+      kind: Rollout
+      jsonPointers:
+        - /status
+
+---
+# ArgoCD AppProject for SPX Options Trading
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: spx-options-trading
+  namespace: argocd
+  labels:
+    project: spx-options-trading
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  description: "SPX Options Trading Bot Project with Advanced Deployment Strategies"
+  
+  # Source repositories allowed for this project
+  sourceRepos:
+    - 'https://github.com/olaitanojo/Spx-options-trading-bot.git'
+    - 'https://github.com/olaitanojo/Market-data-api.git'
+    - 'https://github.com/olaitanojo/Trading-strategy-backtester.git'
+    - 'https://charts.bitnami.com/bitnami'
+    - 'https://prometheus-community.github.io/helm-charts'
+    - 'https://argoproj.github.io/argo-helm'
+  
+  # Destination clusters and namespaces
+  destinations:
+    - namespace: 'spx-options-*'
+      server: https://kubernetes.default.svc
+    - namespace: 'trading-*'
+      server: https://kubernetes.default.svc
+    - namespace: 'monitoring'
+      server: https://kubernetes.default.svc
+  
+  # Cluster resource whitelist
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+  
+  # Namespace resource whitelist
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: ServiceAccount
+    - group: ''
+      kind: PersistentVolumeClaim
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: apps
+      kind: DaemonSet
+    - group: apps
+      kind: ReplicaSet
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: argoproj.io
+      kind: Rollout
+    - group: argoproj.io
+      kind: AnalysisTemplate
+    - group: argoproj.io
+      kind: AnalysisRun
+    - group: networking.istio.io
+      kind: VirtualService
+    - group: networking.istio.io
+      kind: DestinationRule
+    - group: security.istio.io
+      kind: PeerAuthentication
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+    - group: monitoring.coreos.com
+      kind: PrometheusRule
+
+  # RBAC roles for this project
+  roles:
+    - name: admin
+      description: "Admin access to SPX Options Trading applications"
+      policies:
+        - p, proj:spx-options-trading:admin, applications, *, spx-options-trading/*, allow
+        - p, proj:spx-options-trading:admin, repositories, *, *, allow
+        - p, proj:spx-options-trading:admin, certificates, *, *, allow
+        - p, proj:spx-options-trading:admin, clusters, *, *, allow
+      groups:
+        - spx-trading-admins
+        - sre-team
+    
+    - name: developer
+      description: "Developer access to SPX Options Trading applications"
+      policies:
+        - p, proj:spx-options-trading:developer, applications, get, spx-options-trading/*, allow
+        - p, proj:spx-options-trading:developer, applications, sync, spx-options-trading/*, allow
+        - p, proj:spx-options-trading:developer, repositories, get, *, allow
+        - p, proj:spx-options-trading:developer, logs, get, spx-options-trading/*, allow
+      groups:
+        - spx-trading-developers
+    
+    - name: readonly
+      description: "Read-only access to SPX Options Trading applications"
+      policies:
+        - p, proj:spx-options-trading:readonly, applications, get, spx-options-trading/*, allow
+        - p, proj:spx-options-trading:readonly, repositories, get, *, allow
+        - p, proj:spx-options-trading:readonly, logs, get, spx-options-trading/*, allow
+      groups:
+        - spx-trading-viewers
+
+  # Sync windows (maintenance windows)
+  syncWindows:
+    - kind: allow
+      schedule: '0 9-17 * * 1-5'  # Business hours Mon-Fri
+      duration: 8h
+      applications:
+        - '*'
+      manualSync: true
+    - kind: deny
+      schedule: '0 0-6 * * 6,0'   # Weekend early hours
+      duration: 6h
+      applications:
+        - '*'
+      manualSync: false
+
+---
+# Argo Rollout Configuration for Canary Deployments
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: spx-options-trading-bot
+  namespace: spx-options-prod
+  labels:
+    app: spx-options-trading-bot
+    env: production
+    tier: trading
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    rollout.argoproj.io/revision: "1"
+spec:
+  replicas: 5
+  
+  # Rollout strategy with canary deployment
+  strategy:
+    canary:
+      # Anti-affinity to ensure canary pods are distributed
+      antiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution: {}
+        preferredDuringSchedulingIgnoredDuringExecution:
+          weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values: ["spx-options-trading-bot"]
+            topologyKey: kubernetes.io/hostname
+      
+      # Maximum surge and unavailable pods
+      maxSurge: "25%"
+      maxUnavailable: 1
+      
+      # Canary service for testing
+      canaryService: spx-options-trading-bot-canary
+      stableService: spx-options-trading-bot
+      
+      # Traffic routing using Istio
+      trafficRouting:
+        istio:
+          virtualService:
+            name: spx-options-trading-bot-vs
+            routes:
+              - primary
+          destinationRule:
+            name: spx-options-trading-bot-dr
+            canarySubsetName: canary
+            stableSubsetName: stable
+      
+      # Canary deployment steps
+      steps:
+        # Step 1: Deploy canary with 10% traffic
+        - setWeight: 10
+        - pause:
+            duration: 10m
+        
+        # Step 2: Run analysis and increase to 25%
+        - analysis:
+            templates:
+              - templateName: success-rate
+              - templateName: latency-check
+              - templateName: error-rate
+            args:
+              - name: service-name
+                value: spx-options-trading-bot-canary
+              - name: namespace
+                value: spx-options-prod
+        - setWeight: 25
+        - pause:
+            duration: 15m
+        
+        # Step 3: Extended analysis and increase to 50%
+        - analysis:
+            templates:
+              - templateName: success-rate
+              - templateName: latency-check
+              - templateName: business-metrics
+            args:
+              - name: service-name
+                value: spx-options-trading-bot-canary
+              - name: namespace
+                value: spx-options-prod
+        - setWeight: 50
+        - pause:
+            duration: 20m
+        
+        # Step 4: Final analysis before full deployment
+        - analysis:
+            templates:
+              - templateName: comprehensive-analysis
+            args:
+              - name: service-name
+                value: spx-options-trading-bot-canary
+              - name: namespace
+                value: spx-options-prod
+              - name: baseline-service
+                value: spx-options-trading-bot
+        - setWeight: 100
+  
+  # Rollout selector
+  selector:
+    matchLabels:
+      app: spx-options-trading-bot
+      tier: trading
+  
+  # Pod template
+  template:
+    metadata:
+      labels:
+        app: spx-options-trading-bot
+        tier: trading
+        env: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+        
+      # Service account
+      serviceAccountName: spx-options-trading-bot
+      
+      # Node selection and affinity
+      nodeSelector:
+        workload: trading
+        
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: ["spx-options-trading-bot"]
+                topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: workload
+                    operator: In
+                    values: ["trading", "general"]
+      
+      # Tolerations for dedicated nodes
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "trading"
+          effect: "NoSchedule"
+      
+      # Init containers
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.35
+          command: ['sh', '-c']
+          args:
+            - |
+              echo "Waiting for dependencies..."
+              until nc -z redis-service 6379; do
+                echo "Waiting for Redis..."
+                sleep 5
+              done
+              until nc -z postgres-service 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 5
+              done
+              echo "Dependencies are ready!"
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+      
+      # Main containers
+      containers:
+        - name: spx-options-trading-bot
+          image: spxoptionsregistry.azurecr.io/spx-options-trading-bot:latest
+          
+          # Container ports
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: grpc
+              containerPort: 9000
+              protocol: TCP
+          
+          # Environment variables
+          env:
+            - name: ENVIRONMENT
+              value: "production"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: spx-options-secrets
+                  key: redis-url
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: spx-options-secrets
+                  key: database-url
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: spx-options-secrets
+                  key: api-key
+          
+          # Resource limits and requests
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+              ephemeral-storage: 1Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+              ephemeral-storage: 512Mi
+          
+          # Health checks
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+            successThreshold: 1
+          
+          # Volume mounts
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: temp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /app/logs
+          
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+      
+      # Volumes
+      volumes:
+        - name: config
+          configMap:
+            name: spx-options-config
+            defaultMode: 0644
+        - name: temp
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: logs
+          emptyDir:
+            sizeLimit: 5Gi
+      
+      # DNS configuration
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "2"
+          - name: edns0
+      
+      # Termination grace period
+      terminationGracePeriodSeconds: 30
+      
+      # Restart policy
+      restartPolicy: Always
+
+---
+# Analysis Templates for Rollout Validation
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+  namespace: spx-options-prod
+  labels:
+    app: spx-options-trading-bot
+spec:
+  metrics:
+    - name: success-rate
+      initialDelay: 60s
+      interval: 60s
+      count: 5
+      successCondition: result[0] >= 0.95
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(rate(http_requests_total{service="{{args.service-name}}", status!~"5.."}[2m])) / 
+            sum(rate(http_requests_total{service="{{args.service-name}}"}[2m]))
+  args:
+    - name: service-name
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: latency-check
+  namespace: spx-options-prod
+  labels:
+    app: spx-options-trading-bot
+spec:
+  metrics:
+    - name: latency-p99
+      initialDelay: 60s
+      interval: 60s
+      count: 5
+      successCondition: result[0] <= 500
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            histogram_quantile(0.99, 
+              sum(rate(http_request_duration_seconds_bucket{service="{{args.service-name}}"}[2m])) by (le)
+            ) * 1000
+    - name: latency-p95
+      initialDelay: 60s
+      interval: 60s
+      count: 5
+      successCondition: result[0] <= 200
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            histogram_quantile(0.95, 
+              sum(rate(http_request_duration_seconds_bucket{service="{{args.service-name}}"}[2m])) by (le)
+            ) * 1000
+  args:
+    - name: service-name
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: error-rate
+  namespace: spx-options-prod
+  labels:
+    app: spx-options-trading-bot
+spec:
+  metrics:
+    - name: error-rate
+      initialDelay: 60s
+      interval: 60s
+      count: 5
+      successCondition: result[0] <= 0.05
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(rate(http_requests_total{service="{{args.service-name}}", status=~"5.."}[2m])) / 
+            sum(rate(http_requests_total{service="{{args.service-name}}"}[2m]))
+  args:
+    - name: service-name
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: business-metrics
+  namespace: spx-options-prod
+  labels:
+    app: spx-options-trading-bot
+spec:
+  metrics:
+    - name: trades-per-minute
+      initialDelay: 120s
+      interval: 120s
+      count: 3
+      successCondition: result[0] >= 10
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            rate(trades_executed_total{service="{{args.service-name}}"}[2m]) * 60
+    - name: profit-loss-ratio
+      initialDelay: 300s
+      interval: 300s
+      count: 2
+      successCondition: result[0] >= 1.2
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(increase(profit_total{service="{{args.service-name}}"}[5m])) / 
+            sum(increase(loss_total{service="{{args.service-name}}"}[5m]))
+  args:
+    - name: service-name
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: comprehensive-analysis
+  namespace: spx-options-prod
+  labels:
+    app: spx-options-trading-bot
+spec:
+  metrics:
+    - name: comprehensive-score
+      initialDelay: 180s
+      interval: 180s
+      count: 3
+      successCondition: result[0] >= 0.85
+      failureLimit: 1
+      provider:
+        job:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: analysis
+                    image: spxoptionsregistry.azurecr.io/analysis-tools:latest
+                    command: ["/bin/sh"]
+                    args:
+                      - -c
+                      - |
+                        python /scripts/comprehensive_analysis.py \
+                          --canary-service={{args.service-name}} \
+                          --stable-service={{args.baseline-service}} \
+                          --namespace={{args.namespace}} \
+                          --duration=5m
+                restartPolicy: Never
+                backoffLimit: 2
+  args:
+    - name: service-name
+    - name: baseline-service
+    - name: namespace
