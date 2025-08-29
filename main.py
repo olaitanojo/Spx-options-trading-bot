@@ -102,8 +102,10 @@ class SPXOptionsBot:
             vix = yf.Ticker("^VIX")
             self.vix_data = vix.history(period=period)
 
-            logger.info(f"Fetched {len(self.spx_data)} SPX data points")
-            logger.info(f"Fetched {len(self.vix_data)} VIX data points")
+            if self.spx_data is not None:
+                logger.info(f"Fetched {len(self.spx_data)} SPX data points")
+            if self.vix_data is not None:
+                logger.info(f"Fetched {len(self.vix_data)} VIX data points")
 
         except Exception as e:
             logger.error(f"Error fetching market data: {e}")

@@ -111,7 +111,7 @@ class MLEnhancedStrategy:
         self.model = GradientBoostingClassifier(n_estimators=100, random_state=42)
         self.scaler = StandardScaler()
         self.is_trained = False
-        self.feature_columns = None
+        self.feature_columns: Optional[List[str]] = None
 
     def prepare_features(self, data: pd.DataFrame) -> pd.DataFrame:
         """Prepare features for ML model"""
@@ -208,7 +208,7 @@ class MLEnhancedStrategy:
 
         # Feature importance
         feature_importance = dict(
-            zip(self.feature_columns, self.model.feature_importances_)
+            zip(self.feature_columns or [], self.model.feature_importances_)
         )
 
         return {
@@ -244,7 +244,7 @@ class MLEnhancedStrategy:
 
         # Feature importance for this prediction
         feature_importance = dict(
-            zip(self.feature_columns, self.model.feature_importances_)
+            zip(self.feature_columns or [], self.model.feature_importances_)
         )
 
         return MLPrediction(
