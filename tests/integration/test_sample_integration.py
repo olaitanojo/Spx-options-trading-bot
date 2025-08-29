@@ -1,6 +1,7 @@
 """
 Sample integration tests for SPX Options Trading Bot
 """
+
 import pytest
 
 

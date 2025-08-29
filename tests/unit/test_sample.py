@@ -1,6 +1,7 @@
 """
 Sample unit tests for SPX Options Trading Bot
 """
+
 import pytest
 
 
@@ -18,11 +19,11 @@ def test_basic_math():
 
 class TestSampleClass:
     """Sample test class."""
-    
+
     def test_method(self):
         """Sample test method."""
         assert "hello" == "hello"
-    
+
     def test_list_operations(self):
         """Test list operations."""
         test_list = [1, 2, 3]
