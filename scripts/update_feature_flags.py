@@ -22,8 +22,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
-
+from typing import Any, Dict, Optional, cast
 
 # Configure logging
 logging.basicConfig(
@@ -186,7 +185,7 @@ class FeatureFlagManager:
 
     def set_deployment_id(self, deployment_id: str) -> None:
         """Set the current deployment ID"""
-        self.deployment_id = deployment_id
+        self.deployment_id = deployment_id  # type: ignore
         logger.info(f"Set deployment ID: {deployment_id}")
 
     def enable_feature(self, feature_name: str, percentage: float = 100.0) -> bool:
@@ -338,7 +337,9 @@ class FeatureFlagManager:
 
         try:
             if self.provider == "local":
-                return self.client.health_check()  # type: ignore[no-any-return]
+                local_result: Dict[str, Any] = self.client.health_check()
+                # type: ignore[no-any-return,assignment]
+                return local_result
             else:
                 # For external providers, try to fetch a flag
                 test_flag = self.get_flag_status("health-check-test")
@@ -407,10 +408,14 @@ class MockFeatureFlagClient:
         return True
 
     def is_enabled(self, name: str) -> bool:
-        return self.flags.get(name, {}).get("enabled", False)
+        return self.flags.get(name, {}).get("enabled", False)  # type: ignore
 
     def health_check(self) -> Dict[str, Any]:
-        return {"status": "healthy", "provider": "mock", "flags_count": len(self.flags)}
+        return {
+            "status": "healthy",
+            "provider": "mock",
+            "flags_count": len(self.flags),
+        }  # type: ignore[no-any-return,return-value]
 
 
 class LocalFeatureFlagClient:
@@ -426,7 +431,8 @@ class LocalFeatureFlagClient:
         try:
             if os.path.exists(self.flags_file):
                 with open(self.flags_file, "r") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    return cast(Dict[str, Any], data)
             else:
                 return {}
         except Exception as e:
@@ -453,7 +459,7 @@ class LocalFeatureFlagClient:
         return self._save_flags()
 
     def is_enabled(self, name: str) -> bool:
-        return self.flags.get(name, {}).get("enabled", False)
+        return self.flags.get(name, {}).get("enabled", False)  # type: ignore
 
     def health_check(self) -> Dict[str, Any]:
         return {
@@ -573,9 +579,7 @@ def execute_action(manager: FeatureFlagManager, args) -> bool:
         return manager.disable_feature(args.disable_feature)
 
     if args.rollout:
-        return manager.gradual_rollout(
-            args.rollout, args.target, args.step, args.delay
-        )
+        return manager.gradual_rollout(args.rollout, args.target, args.step, args.delay)
 
     if args.rollback:
         return manager.rollback_deployment()
@@ -592,8 +596,7 @@ def handle_default_action(manager: FeatureFlagManager, args) -> bool:
         return False
 
     logger.info(
-        f"Applying default feature flags for deployment "
-        f"{args.deployment_id}"
+        f"Applying default feature flags for deployment " f"{args.deployment_id}"
     )
 
     if args.environment == "production":
@@ -619,11 +622,18 @@ def main():
 
         success = execute_action(manager, args)
 
-        if not success and not any([
-            args.health_check, args.list_flags, args.enable_feature,
-            args.disable_feature, args.rollout, args.rollback, args.strategy,
-            args.deployment_id
-        ]):
+        if not success and not any(
+            [
+                args.health_check,
+                args.list_flags,
+                args.enable_feature,
+                args.disable_feature,
+                args.rollout,
+                args.rollback,
+                args.strategy,
+                args.deployment_id,
+            ]
+        ):
             parser.print_help()
 
         sys.exit(0 if success else 1)

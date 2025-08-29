@@ -299,7 +299,7 @@ class SPXOptionsBot:
             "positions": backtest_positions,
         }
 
-        return_pct = results['return_pct']
+        return_pct = results["return_pct"]
         msg = (
             f"Backtest completed: {total_trades} trades, "
             f"{win_rate:.2%} win rate, {return_pct:.2f}% return"
@@ -336,8 +336,8 @@ class SPXOptionsBot:
             ),
         }
 
-        signal = analysis['signal']
-        price = analysis['current_price']
+        signal = analysis["signal"]
+        price = analysis["current_price"]
         logger.info(f"Current signal: {signal}, Price: ${price:.2f}")
         return analysis
 

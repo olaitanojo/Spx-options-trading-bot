@@ -19,7 +19,7 @@ import logging
 import sys
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin
 
 import requests
@@ -159,7 +159,7 @@ class SmokeTestRunner:
 
         success = response.status_code == 200
 
-        details = {
+        details: Dict[str, Any] = {
             "status_code": response.status_code,
             "response_time": response.elapsed.total_seconds(),
             "metrics_count": 0,
@@ -187,9 +187,11 @@ class SmokeTestRunner:
                 if metric in metrics_text:
                     found_metrics.append(metric)
 
-            details["expected_metrics"] = expected_metrics
-            details["found_metrics"] = found_metrics
-            details["all_metrics_present"] = len(found_metrics) == len(expected_metrics)
+            details["expected_metrics"] = expected_metrics  # type: ignore
+            details["found_metrics"] = found_metrics  # type: ignore
+            details["all_metrics_present"] = (  # type: ignore[assignment,misc]
+                len(found_metrics) == len(expected_metrics)
+            )
 
             success = details["all_metrics_present"]
 
@@ -223,7 +225,7 @@ class SmokeTestRunner:
                     overall_success = False
 
             except Exception as e:
-                results[endpoint] = {"success": False, "error": str(e)}
+                results[endpoint] = {"success": False, "error": str(e)}  # type: ignore
                 overall_success = False
 
         return overall_success, {"endpoints": results}
@@ -236,7 +238,7 @@ class SmokeTestRunner:
             response = self.session.get(url)
             success = response.status_code == 200
 
-            details = {
+            details: Dict[str, Any] = {
                 "status_code": response.status_code,
                 "response_time": response.elapsed.total_seconds(),
             }
@@ -254,11 +256,11 @@ class SmokeTestRunner:
                 success = health_success
                 details = {
                     "method": "inferred_from_health",
-                    "health_check_success": health_success,  # type: ignore[dict-item]
-                }
+                    "health_check_success": health_success,
+                }  # type: ignore[assignment,dict-item]
             except Exception:
                 success = False
-                details = {"error": str(e)}
+                details = {"error": str(e)}  # type: ignore
 
         return success, details
 
@@ -376,7 +378,7 @@ class SmokeTestRunner:
         logger.info(f"Total Tests: {total_tests}")
         logger.info(f"Passed: {passed_tests}")
         logger.info(f"Failed: {failed_tests}")
-        logger.info(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        logger.info(f"Success Rate: {(passed_tests / total_tests) * 100:.1f}%")
 
         if failed_tests > 0:
             logger.info("\nFailed Tests:")
