@@ -464,8 +464,8 @@ class LocalFeatureFlagClient:
         }
 
 
-def main():
-    """Main function"""
+def create_argument_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser"""
     parser = argparse.ArgumentParser(
         description="Manage feature flags for SPX Options Trading Bot",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -496,9 +496,7 @@ Examples:
     )
 
     parser.add_argument("--deployment-id", help="Deployment ID for tracking")
-
     parser.add_argument("--enable-feature", help="Enable a specific feature flag")
-
     parser.add_argument("--disable-feature", help="Disable a specific feature flag")
 
     parser.add_argument(
@@ -553,10 +551,65 @@ Examples:
         help="Perform health check on feature flag service",
     )
 
+    return parser
+
+
+def execute_action(manager: FeatureFlagManager, args) -> bool:
+    """Execute the requested action based on command line arguments"""
+    if args.health_check:
+        health = manager.health_check()
+        print(json.dumps(health, indent=2))
+        return True
+
+    if args.list_flags:
+        flags = manager.list_all_flags()
+        print(json.dumps(flags, indent=2))
+        return True
+
+    if args.enable_feature:
+        return manager.enable_feature(args.enable_feature, args.percentage)
+
+    if args.disable_feature:
+        return manager.disable_feature(args.disable_feature)
+
+    if args.rollout:
+        return manager.gradual_rollout(
+            args.rollout, args.target, args.step, args.delay
+        )
+
+    if args.rollback:
+        return manager.rollback_deployment()
+
+    if args.strategy:
+        return manager.deployment_strategy_flags(args.strategy)
+
+    return handle_default_action(manager, args)
+
+
+def handle_default_action(manager: FeatureFlagManager, args) -> bool:
+    """Handle default deployment-specific flags"""
+    if not args.deployment_id:
+        return False
+
+    logger.info(
+        f"Applying default feature flags for deployment "
+        f"{args.deployment_id}"
+    )
+
+    if args.environment == "production":
+        return manager.deployment_strategy_flags("canary")
+    elif args.environment == "staging":
+        return manager.deployment_strategy_flags("blue-green")
+    else:
+        return manager.deployment_strategy_flags("rolling")
+
+
+def main():
+    """Main function"""
+    parser = create_argument_parser()
     args = parser.parse_args()
 
     try:
-        # Initialize feature flag manager
         manager = FeatureFlagManager(
             environment=args.environment, provider=args.provider
         )
@@ -564,51 +617,14 @@ Examples:
         if args.deployment_id:
             manager.set_deployment_id(args.deployment_id)
 
-        success = True
+        success = execute_action(manager, args)
 
-        # Execute requested actions
-        if args.health_check:
-            health = manager.health_check()
-            print(json.dumps(health, indent=2))
-
-        elif args.list_flags:
-            flags = manager.list_all_flags()
-            print(json.dumps(flags, indent=2))
-
-        elif args.enable_feature:
-            success = manager.enable_feature(args.enable_feature, args.percentage)
-
-        elif args.disable_feature:
-            success = manager.disable_feature(args.disable_feature)
-
-        elif args.rollout:
-            success = manager.gradual_rollout(
-                args.rollout, args.target, args.step, args.delay
-            )
-
-        elif args.rollback:
-            success = manager.rollback_deployment()
-
-        elif args.strategy:
-            success = manager.deployment_strategy_flags(args.strategy)
-
-        else:
-            # Default action: apply deployment-specific flags
-            if args.deployment_id:
-                logger.info(
-                    f"Applying default feature flags for deployment "
-                    f"{args.deployment_id}"
-                )
-                # Apply environment-specific defaults
-                if args.environment == "production":
-                    success = manager.deployment_strategy_flags("canary")
-                elif args.environment == "staging":
-                    success = manager.deployment_strategy_flags("blue-green")
-                else:
-                    success = manager.deployment_strategy_flags("rolling")
-            else:
-                parser.print_help()
-                success = False
+        if not success and not any([
+            args.health_check, args.list_flags, args.enable_feature,
+            args.disable_feature, args.rollout, args.rollback, args.strategy,
+            args.deployment_id
+        ]):
+            parser.print_help()
 
         sys.exit(0 if success else 1)
 
