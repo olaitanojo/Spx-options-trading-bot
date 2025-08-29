@@ -1,0 +1,149 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spx-options-trading-bot-netpol
+  labels:
+    app: spx-options-trading-bot
+    tier: trading
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: spx-options-trading-bot
+      tier: trading
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    # Allow traffic from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-system
+      ports:
+        - protocol: TCP
+          port: 8000
+    
+    # Allow monitoring from Prometheus
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8080
+    
+    # Allow inter-pod communication within same app
+    - from:
+        - podSelector:
+            matchLabels:
+              app: spx-options-trading-bot
+      ports:
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9000
+  
+  egress:
+    # Allow connection to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: spx-redis
+              tier: cache
+      ports:
+        - protocol: TCP
+          port: 6379
+    
+    # Allow connection to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: spx-postgres
+              tier: database
+      ports:
+        - protocol: TCP
+          port: 5432
+    
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        - podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow HTTPS outbound for external APIs
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spx-redis-netpol
+  labels:
+    app: spx-redis
+    tier: cache
+spec:
+  podSelector:
+    matchLabels:
+      app: spx-redis
+      tier: cache
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only allow connections from trading bot
+    - from:
+        - podSelector:
+            matchLabels:
+              app: spx-options-trading-bot
+              tier: trading
+      ports:
+        - protocol: TCP
+          port: 6379
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spx-postgres-netpol
+  labels:
+    app: spx-postgres
+    tier: database
+spec:
+  podSelector:
+    matchLabels:
+      app: spx-postgres
+      tier: database
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only allow connections from trading bot
+    - from:
+        - podSelector:
+            matchLabels:
+              app: spx-options-trading-bot
+              tier: trading
+      ports:
+        - protocol: TCP
+          port: 5432

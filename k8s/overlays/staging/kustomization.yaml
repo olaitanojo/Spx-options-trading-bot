@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: spx-options-trading-bot-staging
+
+namespace: spx-options-staging
+
+resources:
+  - ../../base
+
+commonLabels:
+  env: staging
+  tier: trading
+
+images:
+  - name: spxoptionsregistry.azurecr.io/spx-options-trading-bot
+    newTag: staging-latest
+
+replicas:
+  - name: spx-options-trading-bot
+    count: 2
+
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: spx-options-trading-bot
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: "staging"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "2Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1000m"
+
+configMapGenerator:
+  - name: spx-options-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - LOG_LEVEL=DEBUG
+      - DEBUG=true
+      - METRICS_ENABLED=true
+      - TRADING_ENABLED=false
+      - MAX_POSITIONS=10

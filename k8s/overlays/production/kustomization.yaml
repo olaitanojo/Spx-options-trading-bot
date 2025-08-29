@@ -1,0 +1,98 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: spx-options-trading-bot-production
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+namespace: spx-options-prod
+
+resources:
+  - ../../base
+
+commonLabels:
+  env: production
+  tier: trading
+  managed-by: argocd
+
+commonAnnotations:
+  deployment.kubernetes.io/revision: "1"
+  argocd.argoproj.io/tracking-id: "spx-options-trading-bot:apps/Deployment:spx-options-prod/spx-options-trading-bot"
+
+images:
+  - name: spxoptionsregistry.azurecr.io/spx-options-trading-bot
+    newTag: latest
+
+replicas:
+  - name: spx-options-trading-bot
+    count: 5
+
+patchesStrategicMerge:
+  - deployment-patch.yaml
+  - service-patch.yaml
+  - configmap-patch.yaml
+
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: spx-options-trading-bot
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 5
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "4Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "2000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "2Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "1000m"
+  
+  - target:
+      group: autoscaling
+      version: v2
+      kind: HorizontalPodAutoscaler
+      name: spx-options-trading-bot-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 5
+      - op: replace
+        path: /spec/maxReplicas
+        value: 20
+      - op: replace
+        path: /spec/metrics/0/resource/target/averageUtilization
+        value: 60
+      - op: replace
+        path: /spec/metrics/1/resource/target/averageUtilization
+        value: 70
+
+configMapGenerator:
+  - name: spx-options-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - DEBUG=false
+      - METRICS_ENABLED=true
+      - TRADING_ENABLED=true
+      - MAX_POSITIONS=100
+      - RISK_LIMIT=0.02
+
+secretGenerator:
+  - name: spx-options-secrets
+    behavior: replace
+    files:
+      - redis-url=secrets/redis-url.txt
+      - database-url=secrets/database-url.txt
+      - api-key=secrets/api-key.txt
+      - trading-api-key=secrets/trading-api-key.txt
+      - market-data-api-key=secrets/market-data-api-key.txt

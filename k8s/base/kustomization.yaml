@@ -1,0 +1,55 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: spx-options-trading-bot-base
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - configmap.yaml
+  - secrets.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - network-policy.yaml
+
+commonLabels:
+  app: spx-options-trading-bot
+  managed-by: kustomize
+
+commonAnnotations:
+  config.kubernetes.io/origin: |
+    path: k8s/base/kustomization.yaml
+
+images:
+  - name: spxoptionsregistry.azurecr.io/spx-options-trading-bot
+    newTag: latest
+
+configMapGenerator:
+  - name: spx-options-app-config
+    files:
+      - config/app.yaml
+    options:
+      disableNameSuffixHash: true
+
+secretGenerator:
+  - name: spx-options-generated-secrets
+    literals:
+      - secret-key=replace-with-actual-secret
+    options:
+      disableNameSuffixHash: true
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: spx-options-config
+      fieldPath: data.app\.yaml
+    targets:
+      - select:
+          kind: Deployment
+          name: spx-options-trading-bot
+        fieldPaths:
+          - spec.template.spec.containers.[name=spx-options-trading-bot].env.[name=CONFIG_FILE].value

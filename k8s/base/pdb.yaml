@@ -1,0 +1,46 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: spx-options-trading-bot-pdb
+  labels:
+    app: spx-options-trading-bot
+    tier: trading
+    component: availability
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: spx-options-trading-bot
+      tier: trading
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: spx-redis-pdb
+  labels:
+    app: spx-redis
+    tier: cache
+    component: availability
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: spx-redis
+      tier: cache
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: spx-postgres-pdb
+  labels:
+    app: spx-postgres
+    tier: database
+    component: availability
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: spx-postgres
+      tier: database

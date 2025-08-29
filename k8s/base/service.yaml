@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spx-options-trading-bot
+  labels:
+    app: spx-options-trading-bot
+    tier: trading
+    component: backend
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+    - name: grpc
+      port: 9000
+      targetPort: 9000
+      protocol: TCP
+  selector:
+    app: spx-options-trading-bot
+    tier: trading
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spx-options-trading-bot-canary
+  labels:
+    app: spx-options-trading-bot
+    tier: trading
+    component: canary
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: spx-options-trading-bot
+    tier: trading
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spx-redis-service
+  labels:
+    app: spx-redis
+    tier: cache
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+  selector:
+    app: spx-redis
+    tier: cache
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spx-postgres-service
+  labels:
+    app: spx-postgres
+    tier: database
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+  selector:
+    app: spx-postgres
+    tier: database
