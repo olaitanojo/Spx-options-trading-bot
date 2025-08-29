@@ -67,7 +67,7 @@ class SmokeTestRunner:
         self.base_url = base_url or self.base_urls.get(environment)
         if not self.base_url:
             raise ValueError(f"No base URL configured for environment: {environment}")
-        
+
         # Ensure base_url is not None for type checking
         assert self.base_url is not None
 

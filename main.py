@@ -106,19 +106,23 @@ class SPXOptionsBot:
             # Create mock data for CI environments
             if pd is not None:
                 import datetime
-                dates = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
-                self.spx_data = pd.DataFrame({
-                    'Open': [4000 + i for i in range(len(dates))],
-                    'High': [4010 + i for i in range(len(dates))],
-                    'Low': [3990 + i for i in range(len(dates))],
-                    'Close': [4005 + i for i in range(len(dates))],
-                    'Volume': [1000000] * len(dates)
-                }, index=dates)
-                self.vix_data = pd.DataFrame({
-                    'Close': [20 + (i % 10) for i in range(len(dates))]
-                }, index=dates)
+
+                dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D")
+                self.spx_data = pd.DataFrame(
+                    {
+                        "Open": [4000 + i for i in range(len(dates))],
+                        "High": [4010 + i for i in range(len(dates))],
+                        "Low": [3990 + i for i in range(len(dates))],
+                        "Close": [4005 + i for i in range(len(dates))],
+                        "Volume": [1000000] * len(dates),
+                    },
+                    index=dates,
+                )
+                self.vix_data = pd.DataFrame(
+                    {"Close": [20 + (i % 10) for i in range(len(dates))]}, index=dates
+                )
             return
-            
+
         try:
             logger.info("Fetching market data...")
 
@@ -130,8 +134,12 @@ class SPXOptionsBot:
             vix = yf.Ticker("^VIX")
             self.vix_data = vix.history(period=period)
 
-            logger.info(f"Fetched {len(self.spx_data) if self.spx_data is not None else 0} SPX data points")
-            logger.info(f"Fetched {len(self.vix_data) if self.vix_data is not None else 0} VIX data points")
+            logger.info(
+                f"Fetched {len(self.spx_data) if self.spx_data is not None else 0} SPX data points"
+            )
+            logger.info(
+                f"Fetched {len(self.vix_data) if self.vix_data is not None else 0} VIX data points"
+            )
 
         except Exception as e:
             logger.error(f"Error fetching market data: {e}")
@@ -140,7 +148,9 @@ class SPXOptionsBot:
     def calculate_technical_indicators(self) -> "pd.DataFrame":
         """Calculate technical indicators for trading signals"""
         if pd is None:
-            raise ImportError("pandas not available - required for technical indicators")
+            raise ImportError(
+                "pandas not available - required for technical indicators"
+            )
         if self.spx_data is None:
             raise ValueError("Market data not loaded. Call fetch_market_data() first.")
 
