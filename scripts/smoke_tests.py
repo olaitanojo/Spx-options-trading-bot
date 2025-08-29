@@ -67,13 +67,16 @@ class SmokeTestRunner:
         self.base_url = base_url or self.base_urls.get(environment)
         if not self.base_url:
             raise ValueError(f"No base URL configured for environment: {environment}")
+        
+        # Ensure base_url is not None for type checking
+        assert self.base_url is not None
 
         logger.info(f"Initializing smoke tests for {environment} environment")
         logger.info(f"Base URL: {self.base_url}")
 
         # Test session with timeouts
         self.session = requests.Session()
-        self.session.timeout = self.timeout
+        self.session.timeout = self.timeout  # type: ignore[attr-defined]
 
         # Add retry adapter
         from requests.adapters import HTTPAdapter
@@ -251,7 +254,7 @@ class SmokeTestRunner:
                 success = health_success
                 details = {
                     "method": "inferred_from_health",
-                    "health_check_success": health_success,
+                    "health_check_success": health_success,  # type: ignore[dict-item]
                 }
             except:
                 success = False
@@ -285,7 +288,7 @@ class SmokeTestRunner:
                 health_success, _ = self.test_health_endpoint()
                 return health_success, {
                     "method": "inferred_from_main_health",
-                    "assumed_healthy": health_success,
+                    "assumed_healthy": health_success,  # type: ignore[dict-item]
                 }
 
         except Exception as e:

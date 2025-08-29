@@ -102,10 +102,8 @@ class SPXOptionsBot:
             vix = yf.Ticker("^VIX")
             self.vix_data = vix.history(period=period)
 
-            if self.spx_data is not None:
-                logger.info(f"Fetched {len(self.spx_data)} SPX data points")
-            if self.vix_data is not None:
-                logger.info(f"Fetched {len(self.vix_data)} VIX data points")
+            logger.info(f"Fetched {len(self.spx_data) if self.spx_data is not None else 0} SPX data points")
+            logger.info(f"Fetched {len(self.vix_data) if self.vix_data is not None else 0} VIX data points")
 
         except Exception as e:
             logger.error(f"Error fetching market data: {e}")
@@ -116,7 +114,7 @@ class SPXOptionsBot:
         if self.spx_data is None:
             raise ValueError("Market data not loaded. Call fetch_market_data() first.")
 
-        df = self.spx_data.copy()
+        df = self.spx_data.copy()  # type: ignore[union-attr,unreachable]
 
         # Moving averages
         df["SMA_20"] = df["Close"].rolling(window=20).mean()

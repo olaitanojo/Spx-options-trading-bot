@@ -183,7 +183,7 @@ class FeatureFlagManager:
         """Initialize local file-based client"""
         return LocalFeatureFlagClient(self.environment)
 
-    def set_deployment_id(self, deployment_id: str):
+    def set_deployment_id(self, deployment_id: str) -> None:
         """Set the current deployment ID"""
         self.deployment_id = deployment_id
         logger.info(f"Set deployment ID: {deployment_id}")
@@ -194,7 +194,7 @@ class FeatureFlagManager:
 
         try:
             if self.provider == "local":
-                return self.client.set_flag(feature_name, True, percentage)
+                return self.client.set_flag(feature_name, True, percentage)  # type: ignore[no-any-return]
             elif self.provider == "configcat":
                 # ConfigCat doesn't support programmatic flag updates
                 # This would typically be done via their dashboard or Management API
@@ -217,7 +217,7 @@ class FeatureFlagManager:
 
         try:
             if self.provider == "local":
-                return self.client.set_flag(feature_name, False, 0.0)
+                return self.client.set_flag(feature_name, False, 0.0)  # type: ignore[no-any-return]
             else:
                 logger.warning(f"Feature disabling not implemented for {self.provider}")
                 return True
@@ -335,7 +335,7 @@ class FeatureFlagManager:
 
         try:
             if self.provider == "local":
-                return self.client.health_check()
+                return self.client.health_check()  # type: ignore[no-any-return]
             else:
                 # For external providers, try to fetch a flag
                 test_flag = self.get_flag_status("health-check-test")
@@ -351,12 +351,12 @@ class FeatureFlagManager:
         """Get current status of a feature flag"""
         try:
             if self.provider == "local":
-                return self.client.is_enabled(flag_name)
+                return self.client.is_enabled(flag_name)  # type: ignore[no-any-return]
             elif self.provider == "configcat":
-                return self.client.get_value(flag_name, False)
+                return self.client.get_value(flag_name, False)  # type: ignore[no-any-return]
             elif self.provider == "launchdarkly":
                 user = {"key": f"deployment-{self.deployment_id}"}
-                return self.client.variation(flag_name, user, False)
+                return self.client.variation(flag_name, user, False)  # type: ignore[no-any-return]
             else:
                 logger.warning(f"Flag status check not implemented for {self.provider}")
                 return None
