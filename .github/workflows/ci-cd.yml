@@ -420,8 +420,8 @@ jobs:
   monitoring:
     name: Update Monitoring
     runs-on: ubuntu-latest
-    needs: [setup]
-    if: false
+    needs: [setup, deploy]
+    if: needs.setup.outputs.should_deploy == 'true' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped')
     
     steps:
       - name: Update Grafana Dashboards
@@ -441,8 +441,8 @@ jobs:
   notification:
     name: Send Notifications
     runs-on: ubuntu-latest
-    needs: [setup]
-    if: false
+    needs: [setup, code-quality, test, security-scan, build-and-push, deploy]
+    if: always() && needs.setup.outputs.should_deploy == 'true'
     
     steps:
       - name: Notify Slack on Success
@@ -546,8 +546,8 @@ jobs:
   rollback:
     name: Rollback on Failure
     runs-on: ubuntu-latest
-    needs: [setup]
-    if: false
+    needs: [setup, deploy]
+    if: needs.deploy.result == 'failure' && needs.setup.outputs.environment == 'production'
     
     steps:
       - name: Azure Login
