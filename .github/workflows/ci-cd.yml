@@ -239,7 +239,7 @@ jobs:
     name: Build and Push Container
     runs-on: ubuntu-latest
     needs: [setup, code-quality, test, security-scan]
-    if: needs.setup.outputs.should_deploy == 'true'
+    if: needs.setup.outputs.should_deploy == 'true' && secrets.ACR_USERNAME != '' && secrets.ACR_PASSWORD != ''
     
     steps:
       - name: Checkout Code
@@ -294,8 +294,8 @@ jobs:
   deploy:
     name: Deploy Application
     runs-on: ubuntu-latest
-    needs: [setup]
-    if: needs.setup.outputs.should_deploy == 'true'
+    needs: [setup, build-and-push]
+    if: needs.setup.outputs.should_deploy == 'true' && secrets.AZURE_CREDENTIALS != '' && needs.build-and-push.result == 'success'
     environment: 
       name: ${{ needs.setup.outputs.environment }}
       url: ${{ steps.get-url.outputs.app_url }}
@@ -442,6 +442,71 @@ jobs:
               body: `Production deployment failed for commit ${context.sha}.\n\nPlease investigate and resolve the issues.\n\n**Environment:** ${{ needs.setup.outputs.environment }}\n**Strategy:** ${{ needs.setup.outputs.deployment_strategy }}\n**Workflow:** ${context.workflow}\n**Run ID:** ${context.runId}`,
               labels: ['bug', 'production', 'deployment']
             });
+
+  deployment-status:
+    name: Deployment Status
+    runs-on: ubuntu-latest
+    needs: [setup, code-quality, test, security-scan]
+    if: always()
+    
+    steps:
+      - name: Check Deployment Prerequisites
+        run: |
+          echo "🔍 Deployment Status Check"
+          echo "============================="
+          
+          if [[ "${{ needs.setup.outputs.should_deploy }}" == "true" ]]; then
+            echo "✅ Should deploy: YES"
+            echo "🌍 Target environment: ${{ needs.setup.outputs.environment }}"
+            echo "📦 Deployment strategy: ${{ needs.setup.outputs.deployment_strategy }}"
+            
+            # Check for required secrets
+            if [[ "${{ secrets.ACR_USERNAME }}" == "" ]]; then
+              echo "❌ Missing ACR_USERNAME secret - Container build will be skipped"
+              echo "📝 To enable deployment, add ACR_USERNAME to repository secrets"
+            else
+              echo "✅ ACR_USERNAME secret configured"
+            fi
+            
+            if [[ "${{ secrets.ACR_PASSWORD }}" == "" ]]; then
+              echo "❌ Missing ACR_PASSWORD secret - Container build will be skipped"
+              echo "📝 To enable deployment, add ACR_PASSWORD to repository secrets"
+            else
+              echo "✅ ACR_PASSWORD secret configured"
+            fi
+            
+            if [[ "${{ secrets.AZURE_CREDENTIALS }}" == "" ]]; then
+              echo "❌ Missing AZURE_CREDENTIALS secret - Kubernetes deployment will be skipped"
+              echo "📝 To enable deployment, add AZURE_CREDENTIALS to repository secrets"
+            else
+              echo "✅ AZURE_CREDENTIALS secret configured"
+            fi
+            
+            # Check job statuses
+            echo ""
+            echo "📊 Pipeline Status:"
+            echo "├─ Code Quality: ${{ needs.code-quality.result }}"
+            echo "├─ Unit Tests: ${{ needs.test.result }}"
+            echo "└─ Security Scan: ${{ needs.security-scan.result }}"
+            
+            if [[ "${{ secrets.ACR_USERNAME }}" != "" && "${{ secrets.ACR_PASSWORD }}" != "" ]]; then
+              echo "🚀 Container build will proceed"
+            else
+              echo "⏭️  Container build skipped - missing registry credentials"
+            fi
+            
+            if [[ "${{ secrets.AZURE_CREDENTIALS }}" != "" ]]; then
+              echo "☸️  Kubernetes deployment will proceed (if container build succeeds)"
+            else
+              echo "⏭️  Kubernetes deployment skipped - missing Azure credentials"
+            fi
+          else
+            echo "⏭️  Deployment skipped - pull request or deployment disabled"
+          fi
+          
+          echo ""
+          echo "📖 For setup instructions, see DEPLOYMENT_GUIDE.md"
+          echo "🔧 For secrets configuration, see deployment-secrets-guide.md"
 
   rollback:
     name: Rollback on Failure
