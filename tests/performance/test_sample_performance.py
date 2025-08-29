@@ -4,8 +4,6 @@ Sample performance tests for SPX Options Trading Bot
 
 import time
 
-import pytest
-
 
 def test_sample_performance():
     """Sample performance test that always passes."""

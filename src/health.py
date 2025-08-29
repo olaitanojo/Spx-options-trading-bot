@@ -10,9 +10,8 @@ from typing import Any, Dict
 
 import psycopg2
 import redis
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from psycopg2 import sql
 
 
 class HealthChecker:
@@ -60,7 +59,7 @@ class HealthChecker:
         try:
             if self.db_connection is None or self.db_connection.closed:
                 self.db_connection = psycopg2.connect(
-                    "postgresql://trading_user:password@spx-postgres-service:5432/trading_db"
+                    "postgresql://trading_user:password@spx-postgres-service:5432/trading_db"  # noqa: E501
                 )
 
             with self.db_connection.cursor() as cursor:

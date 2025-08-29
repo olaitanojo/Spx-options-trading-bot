@@ -12,7 +12,7 @@ import warnings
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 try:
     import numpy as np
@@ -105,7 +105,6 @@ class SPXOptionsBot:
             logger.warning("yfinance not available - using mock data for CI")
             # Create mock data for CI environments
             if pd is not None:
-                import datetime
 
                 dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D")
                 self.spx_data = pd.DataFrame(
@@ -134,12 +133,10 @@ class SPXOptionsBot:
             vix = yf.Ticker("^VIX")
             self.vix_data = vix.history(period=period)
 
-            logger.info(
-                f"Fetched {len(self.spx_data) if self.spx_data is not None else 0} SPX data points"
-            )
-            logger.info(
-                f"Fetched {len(self.vix_data) if self.vix_data is not None else 0} VIX data points"
-            )
+            spx_count = len(self.spx_data) if self.spx_data is not None else 0
+            vix_count = len(self.vix_data) if self.vix_data is not None else 0
+            logger.info(f"Fetched {spx_count} SPX data points")
+            logger.info(f"Fetched {vix_count} VIX data points")
 
         except Exception as e:
             logger.error(f"Error fetching market data: {e}")
@@ -152,7 +149,8 @@ class SPXOptionsBot:
                 "pandas not available - required for technical indicators"
             )
         if self.spx_data is None:
-            raise ValueError("Market data not loaded. Call fetch_market_data() first.")
+            msg = "Market data not loaded. Call fetch_market_data() first."
+            raise ValueError(msg)
 
         df = self.spx_data.copy()  # type: ignore[union-attr,unreachable]
 
@@ -301,9 +299,12 @@ class SPXOptionsBot:
             "positions": backtest_positions,
         }
 
-        logger.info(
-            f"Backtest completed: {total_trades} trades, {win_rate:.2%} win rate, {results['return_pct']:.2f}% return"
+        return_pct = results['return_pct']
+        msg = (
+            f"Backtest completed: {total_trades} trades, "
+            f"{win_rate:.2%} win rate, {return_pct:.2f}% return"
         )
+        logger.info(msg)
         return results
 
     def run_live_analysis(self) -> Dict:
@@ -335,9 +336,9 @@ class SPXOptionsBot:
             ),
         }
 
-        logger.info(
-            f"Current signal: {analysis['signal']}, Price: ${analysis['current_price']:.2f}"
-        )
+        signal = analysis['signal']
+        price = analysis['current_price']
+        logger.info(f"Current signal: {signal}, Price: ${price:.2f}")
         return analysis
 
     def _generate_recommendation(

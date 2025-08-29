@@ -3,7 +3,7 @@ Core trading functionality for SPX Options Trading Bot
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 

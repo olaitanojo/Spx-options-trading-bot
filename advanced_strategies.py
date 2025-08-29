@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 import talib
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -276,7 +276,7 @@ class AdvancedTradingStrategies:
 
         # Additional confirmation
         volume_spike = df["Volume_Ratio"] > 1.5
-        low_volatility = df["BB_Width"] < df["BB_Width"].rolling(50).mean()
+        # low_volatility = df["BB_Width"] < df["BB_Width"].rolling(50).mean()
 
         signals[oversold & volume_spike] = 1  # Buy
         signals[overbought & volume_spike] = -1  # Sell
@@ -322,7 +322,7 @@ class AdvancedTradingStrategies:
         signals = pd.Series(0, index=df.index)
 
         # Volatility conditions
-        low_vol_period = df["ATR"] < df["ATR"].rolling(20).mean() * 0.8
+        # low_vol_period = df["ATR"] < df["ATR"].rolling(20).mean() * 0.8
         vol_expansion = df["BB_Width"] > df["BB_Width"].shift(1) * 1.1
 
         # Price breakout conditions
@@ -432,11 +432,11 @@ def main():
     print(f"Sell signals: {len(ensemble_signals[ensemble_signals == -1])}")
 
     ml_pred = strategy_info["ml_prediction"]
-    print(f"\nLatest ML Prediction:")
+    print("Latest ML Prediction:")
     print(f"Signal: {ml_pred.signal}")
     print(f"Confidence: {ml_pred.confidence:.3f}")
 
-    print(f"\nSignal Components:")
+    print("\nSignal Components:")
     for component, signal in strategy_info["signal_components"].items():
         print(f"{component}: {signal}")
 

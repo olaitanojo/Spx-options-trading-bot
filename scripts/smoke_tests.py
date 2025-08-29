@@ -256,7 +256,7 @@ class SmokeTestRunner:
                     "method": "inferred_from_health",
                     "health_check_success": health_success,  # type: ignore[dict-item]
                 }
-            except:
+            except Exception:
                 success = False
                 details = {"error": str(e)}
 
@@ -433,7 +433,7 @@ Examples:
   python scripts/smoke_tests.py --environment production
   python scripts/smoke_tests.py --environment staging --verbose
   python scripts/smoke_tests.py --environment development --timeout 30
-  python scripts/smoke_tests.py --environment production --base-url https://custom.example.com
+  python scripts/smoke_tests.py --environment production \
         """,
     )
 

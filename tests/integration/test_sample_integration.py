@@ -2,8 +2,6 @@
 Sample integration tests for SPX Options Trading Bot
 """
 
-import pytest
-
 
 def test_sample_integration():
     """Sample integration test that always passes."""

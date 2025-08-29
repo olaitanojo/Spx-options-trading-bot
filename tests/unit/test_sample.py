@@ -2,8 +2,6 @@
 Sample unit tests for SPX Options Trading Bot
 """
 
-import pytest
-
 
 def test_sample_unit():
     """Sample unit test that always passes."""

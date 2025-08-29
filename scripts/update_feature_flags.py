@@ -8,8 +8,10 @@ It integrates with various feature flag services and can be used in
 CI/CD pipelines for controlled deployments.
 
 Usage:
-    python scripts/update_feature_flags.py --environment production --deployment-id abc123
-    python scripts/update_feature_flags.py --environment staging --enable-feature new-algo
+    python scripts/update_feature_flags.py --environment production \
+        --deployment-id abc123
+    python scripts/update_feature_flags.py --environment staging \
+        --enable-feature new-algo
     python scripts/update_feature_flags.py --rollback --environment production
 """
 
@@ -20,9 +22,8 @@ import os
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-import requests
 
 # Configure logging
 logging.basicConfig(
@@ -194,7 +195,8 @@ class FeatureFlagManager:
 
         try:
             if self.provider == "local":
-                return self.client.set_flag(feature_name, True, percentage)  # type: ignore[no-any-return]
+                result = self.client.set_flag(feature_name, True, percentage)
+                return result  # type: ignore[no-any-return]
             elif self.provider == "configcat":
                 # ConfigCat doesn't support programmatic flag updates
                 # This would typically be done via their dashboard or Management API
@@ -217,7 +219,8 @@ class FeatureFlagManager:
 
         try:
             if self.provider == "local":
-                return self.client.set_flag(feature_name, False, 0.0)  # type: ignore[no-any-return]
+                result = self.client.set_flag(feature_name, False, 0.0)
+                return result  # type: ignore[no-any-return]
             else:
                 logger.warning(f"Feature disabling not implemented for {self.provider}")
                 return True
@@ -353,10 +356,12 @@ class FeatureFlagManager:
             if self.provider == "local":
                 return self.client.is_enabled(flag_name)  # type: ignore[no-any-return]
             elif self.provider == "configcat":
-                return self.client.get_value(flag_name, False)  # type: ignore[no-any-return]
+                result = self.client.get_value(flag_name, False)
+                return result  # type: ignore[no-any-return]
             elif self.provider == "launchdarkly":
                 user = {"key": f"deployment-{self.deployment_id}"}
-                return self.client.variation(flag_name, user, False)  # type: ignore[no-any-return]
+                result = self.client.variation(flag_name, user, False)
+                return result  # type: ignore[no-any-return]
             else:
                 logger.warning(f"Flag status check not implemented for {self.provider}")
                 return None
@@ -467,7 +472,8 @@ def main():
         epilog="""
 Examples:
   python scripts/update_feature_flags.py --environment production --deployment-id abc123
-  python scripts/update_feature_flags.py --enable-feature new-trading-algorithm --percentage 25
+  python scripts/update_feature_flags.py --enable-feature \
+      new-trading-algorithm --percentage 25
   python scripts/update_feature_flags.py --disable-feature enhanced-ui
   python scripts/update_feature_flags.py --rollout new-algorithm --target 50 --step 10
   python scripts/update_feature_flags.py --rollback --environment production
@@ -590,7 +596,8 @@ Examples:
             # Default action: apply deployment-specific flags
             if args.deployment_id:
                 logger.info(
-                    f"Applying default feature flags for deployment {args.deployment_id}"
+                    f"Applying default feature flags for deployment "
+                    f"{args.deployment_id}"
                 )
                 # Apply environment-specific defaults
                 if args.environment == "production":
