@@ -277,8 +277,8 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=sha,prefix=${{ github.ref_name }}-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and Push Container Image
         if: steps.check-acr.outputs.acr-available == 'true'
