@@ -125,7 +125,7 @@ jobs:
       - name: Security Analysis
         run: |
           bandit -r . -f json -o bandit-report.json || true
-          safety check --json --output safety-report.json || true
+          safety check --json > safety-report.json || true
 
       - name: Upload Security Reports
         uses: actions/upload-artifact@v4
@@ -277,8 +277,8 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=${{ github.ref_name }}-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and Push Container Image
         if: steps.check-acr.outputs.acr-available == 'true'
@@ -424,19 +424,35 @@ jobs:
     if: needs.setup.outputs.should_deploy == 'true' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped')
     
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
       - name: Update Grafana Dashboards
         run: |
           echo "Updating Grafana dashboards..."
-          curl -X POST "${{ secrets.GRAFANA_URL }}/api/dashboards/db" \
-            -H "Authorization: Bearer ${{ secrets.GRAFANA_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d @monitoring/grafana/spx-options-dashboard.json
+          if [[ "${{ secrets.GRAFANA_URL }}" != "" && "${{ secrets.GRAFANA_API_KEY }}" != "" ]]; then
+            if [[ -f "monitoring/grafana/spx-options-dashboard.json" ]]; then
+              curl -X POST "${{ secrets.GRAFANA_URL }}/api/dashboards/db" \
+                -H "Authorization: Bearer ${{ secrets.GRAFANA_API_KEY }}" \
+                -H "Content-Type: application/json" \
+                -d @monitoring/grafana/spx-options-dashboard.json || echo "Failed to update Grafana dashboard"
+            else
+              echo "⏭️ Grafana dashboard file not found - skipping dashboard update"
+            fi
+          else
+            echo "⏭️ Grafana credentials not configured - skipping dashboard update"
+          fi
 
       - name: Create Deployment Event
         run: |
           echo "Creating deployment event in monitoring..."
-          curl -X POST "${{ secrets.PROMETHEUS_PUSHGATEWAY_URL }}/metrics/job/github-actions" \
-            -d "deployment_info{environment=\"${{ needs.setup.outputs.environment }}\",strategy=\"${{ needs.setup.outputs.deployment_strategy }}\",commit=\"${{ github.sha }}\"} 1"
+          if [[ "${{ secrets.PROMETHEUS_PUSHGATEWAY_URL }}" != "" ]]; then
+            curl -X POST "${{ secrets.PROMETHEUS_PUSHGATEWAY_URL }}/metrics/job/github-actions" \
+              -d "deployment_info{environment=\"${{ needs.setup.outputs.environment }}\",strategy=\"${{ needs.setup.outputs.deployment_strategy }}\",commit=\"${{ github.sha }}\"} 1" \
+              || echo "Failed to send deployment event to Prometheus"
+          else
+            echo "⏭️ Prometheus Pushgateway URL not configured - skipping deployment event"
+          fi
 
   notification:
     name: Send Notifications
@@ -446,7 +462,7 @@ jobs:
     
     steps:
       - name: Notify Slack on Success
-        if: needs.deploy.result == 'success'
+        if: needs.deploy.result == 'success' && secrets.SLACK_WEBHOOK != ''
         uses: 8398a7/action-slack@v3
         with:
           status: success
@@ -456,7 +472,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 
       - name: Notify Slack on Failure
-        if: needs.deploy.result == 'failure'
+        if: needs.deploy.result == 'failure' && secrets.SLACK_WEBHOOK != ''
         uses: 8398a7/action-slack@v3
         with:
           status: failure
@@ -464,6 +480,16 @@ jobs:
           fields: repo,message,commit,author,action,eventName,ref,workflow
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          
+      - name: Log Notification Status
+        run: |
+          echo "📬 Notification Status:"
+          if [[ "${{ secrets.SLACK_WEBHOOK }}" != "" ]]; then
+            echo "✅ Slack webhook configured - notifications sent"
+          else
+            echo "⏭️ Slack webhook not configured - skipping notifications"
+            echo "📝 To enable notifications, add SLACK_WEBHOOK to repository secrets"
+          fi
 
       - name: Create GitHub Issue on Failure
         if: needs.deploy.result == 'failure' && needs.setup.outputs.environment == 'production'
