@@ -6,25 +6,6 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - development
-          - staging
-          - production
-      deployment_strategy:
-        description: 'Deployment strategy'
-        required: true
-        default: 'canary'
-        type: choice
-        options:
-          - canary
-          - blue-green
-          - rolling
 
 env:
   REGISTRY: spxoptionsregistry.azurecr.io
@@ -49,9 +30,7 @@ jobs:
       - name: Set Environment
         id: set-env
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "environment=production" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
             echo "environment=staging" >> $GITHUB_OUTPUT
@@ -62,9 +41,7 @@ jobs:
       - name: Set Deployment Strategy
         id: set-strategy
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "strategy=${{ github.event.inputs.deployment_strategy }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ steps.set-env.outputs.environment }}" == "production" ]]; then
+          if [[ "${{ steps.set-env.outputs.environment }}" == "production" ]]; then
             echo "strategy=canary" >> $GITHUB_OUTPUT
           elif [[ "${{ steps.set-env.outputs.environment }}" == "staging" ]]; then
             echo "strategy=blue-green" >> $GITHUB_OUTPUT

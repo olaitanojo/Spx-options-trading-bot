@@ -1,0 +1,12 @@
+2025-08-29 23:05:55,732 - INFO - Starting SPX Options Trading Bot
+2025-08-29 23:05:55,732 - INFO - Running live market analysis...
+2025-08-29 23:05:55,732 - INFO - Fetching market data...
+2025-08-29 23:05:58,970 - INFO - Fetched 64 SPX data points
+2025-08-29 23:05:58,971 - INFO - Fetched 65 VIX data points
+2025-08-29 23:05:58,981 - INFO - Current signal: sell, Price: $6460.26
+2025-08-29 23:05:58,982 - INFO - Starting backtest from 2025-05-31 to 2025-08-29
+2025-08-29 23:05:58,982 - INFO - Fetching market data...
+2025-08-29 23:05:59,136 - INFO - Fetched 502 SPX data points
+2025-08-29 23:05:59,137 - INFO - Fetched 503 VIX data points
+2025-08-29 23:05:59,223 - INFO - Backtest completed: 53 trades, 0.00% win rate, 0.00% return
+2025-08-29 23:05:59,224 - INFO - SPX Options Trading Bot completed successfully
